@@ -173,10 +173,9 @@ This application allows users to submit protein sequences and receive 3D structu
 ### Troubleshooting
 - on some Docker versions, Docker won't use GPU even though the "--use_gpu=true" flag is set
 ```bash
-# check the log for GPU utilaiztion
+# check GPU utilaiztion
 sudo journalctl -fu alphafold-api
-
-# to double check if GPU utilaiztion run 
+# Or 
 nvidia-smi
 
 # if 0 memory is allocated, then update run_docker.py
