@@ -164,13 +164,6 @@ This application allows users to submit protein sequences and receive 3D structu
 ### Azure code changes
 - copy and paste files on /azure to their respective directory
 
-### Security Considerations
-
-- The AlphaFold VM has restricted access via security groups/NSGs
-- Authentication is handled via IAM roles or Managed Identities
-- All data is encrypted in transit and at rest
-- SAS/pre-signed URLs have limited time validity
-
 ### Maintenance
 
 - Logs are available in CloudWatch (AWS) or Application Insights (Azure)
