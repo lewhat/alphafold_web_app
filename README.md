@@ -122,12 +122,12 @@ This application allows users to submit protein sequences and receive 3D structu
    - Install all required packages and set up AlphaFold
    ```bash
    chmod +x ~/alphafold_api/scripts/setup.sh
-   ./scripts/setup.sh
+   ~/alphafold_api/scripts/setup.sh
    ```
    - Download Alphafold Databases ( 2.7TB make sure you have voulme to handle that)
    ```bash
    chmod +x ~/alphafold_api/scripts/download.sh
-   ./scripts/download.sh
+   ~/alphafold_api/scripts/download.sh
    ```
    - Configure the Flask application
    ```bash
