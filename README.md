@@ -215,14 +215,14 @@ environment={
 ```bash
 docker info | grep -i runtime
 
-# if Nvidia is not listed run to see if it's setup
+# if Nvidia is not listed run the following command to see if it's setup
 cat /etc/docker/daemon.json
 
-# if that file doesn't exist run
+# if that file doesn't exist, create it
 sudo mkdir -p /etc/docker
 sudo nano /etc/docker/daemon.json
 
-# add the following in the file
+# add the following code in the file
 {
     "runtimes": {
         "nvidia": {
