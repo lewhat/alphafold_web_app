@@ -2,7 +2,7 @@ export interface JobData {
   jobId: string;
   sequence: string;
   status: "submitted" | "queued" | "processing" | "completed" | "error";
-  objectKey: string;
+  storageName: string;
   submittedAt: string;
   processedAt?: string;
   completedAt?: string;

@@ -14,7 +14,7 @@ provider "azurerm" {
 # Variables
 variable "location" {
   description = "Azure region for resources"
-  default     = "eastus"
+  default     = "canadacentral"
 }
 
 variable "app_name" {
@@ -23,13 +23,13 @@ variable "app_name" {
 }
 
 variable "vm_admin_username" {
-  description = "Admin username for Azure VM"
-  default     = "alphafoldadmin"
+  description = "VM administrator username"
+  default     = "aplhafolduser"
 }
 
-variable "vm_admin_password" {
-  description = "Admin password for Azure VM"
-  sensitive   = true
+variable "admin_ssh_key_path" {
+  description = "Path to public SSH key for VM authentication"
+  default     = "~/.ssh/alphafold_azure.pub"
 }
 
 variable "vm_size" {
@@ -153,12 +153,16 @@ resource "azurerm_linux_virtual_machine" "alphafold_vm" {
   location            = azurerm_resource_group.rg.location
   size                = var.vm_size
   admin_username      = var.vm_admin_username
-  admin_password      = var.vm_admin_password
-  disable_password_authentication = false
   
   network_interface_ids = [
     azurerm_network_interface.alphafold_nic.id,
   ]
+
+  admin_ssh_key {
+    username   = var.vm_admin_username
+    public_key = file(var.admin_ssh_key_path)
+  }
+
 
   os_disk {
     caching              = "ReadWrite"
@@ -192,7 +196,7 @@ resource "azurerm_managed_disk" "alphafold_data_disk" {
 resource "azurerm_virtual_machine_data_disk_attachment" "alphafold_disk_attach" {
   managed_disk_id    = azurerm_managed_disk.alphafold_data_disk.id
   virtual_machine_id = azurerm_linux_virtual_machine.alphafold_vm.id
-  lun                = "10"
+  lun                = 0
   caching            = "ReadWrite"
 }
 

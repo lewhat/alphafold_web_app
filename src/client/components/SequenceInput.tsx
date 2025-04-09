@@ -64,7 +64,7 @@ const SequenceInput: React.FC<SequenceInputProps> = ({
             htmlFor="sequence"
             className="block text-gray-700 font-medium mb-2"
           >
-            Protein Sequence (Single Letter Amino Acid Codes)
+            Protein Sequence
           </label>
           <textarea
             id="sequence"

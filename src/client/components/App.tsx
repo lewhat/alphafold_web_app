@@ -173,7 +173,7 @@ const App: React.FC = () => {
     setSubmitting(true);
     setError(null);
     setStructureData(null);
-    setstorageUrl(null);
+    setStorageUrl(null);
     setStatusMessage(null);
 
     try {

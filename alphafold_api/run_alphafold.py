@@ -3,8 +3,9 @@ import os
 import shutil
 import subprocess
 import time
-import boto3
 import threading
+from azure.storage.blob import BlobClient
+from azure.identity import DefaultAzureCredential
 
 from constants import ALPHAFOLD_REPO, DATA_DIR, OUTPUT_DIR, SEQUENCES_DIR
 from gpu_utils import check_system_gpu, check_docker_gpu_access, verify_alphafold_gpu_usage, monitor_gpu_during_run
@@ -13,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def run_alphafold(job_id, sequence, name, job_status, storage_url=None, bucket_name=None, object_key=None):
+def run_alphafold(job_id, sequence, name, job_status, sasUrl=None, storageAccount=None, blobName=None, containerName=None):
     """Function to run AlphaFold in a separate thread"""
     try:
         # Update job status
@@ -50,11 +51,12 @@ def run_alphafold(job_id, sequence, name, job_status, storage_url=None, bucket_n
         monitor_thread.daemon = True  # Thread will exit when main thread exits
         monitor_thread.start()
 
-        if bucket_name and object_key:
-            job_status[job_id]["s3_bucket"] = bucket_name
-            job_status[job_id]["s3_key"] = object_key
-        elif storage_url:
-            job_status[job_id]["storage_url"] = storage_url
+        if storageAccount and containerName and blobName:
+            job_status[job_id]["storage_account"] = storageAccount
+            job_status[job_id]["container_name"] = containerName
+            job_status[job_id]["blob_name"] = blobName
+        elif sasUrl:
+            job_status[job_id]["sas_url"] = sasUrl
 
         job_dir = os.path.join(OUTPUT_DIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
@@ -137,55 +139,71 @@ def run_alphafold(job_id, sequence, name, job_status, storage_url=None, bucket_n
                     result_file = pdb_files[0]
                     file_path = os.path.join(result_dir, result_file)
 
-                    # Upload to S3 using boto3 if bucket info was provided
-                    s3_uploaded = False
-                    s3_bucket = job_status[job_id].get("s3_bucket")
-                    s3_key = job_status[job_id].get("s3_key")
+                    # Upload to Azure Blob storage
+                    azure_uploaded = False
+                    storage_account = job_status[job_id].get("storage_account")
+                    container_name = job_status[job_id].get("container_name")
+                    blob_name = job_status[job_id].get("blob_name")
 
-                    if s3_bucket and s3_key:
+                    if storage_account and container_name and blob_name:
                         try:
-                            # Upload file to S3 using boto3
-                            logger.info(f"Uploading results to S3 bucket {s3_bucket} with key {s3_key}")
-                            s3_client = boto3.client('s3')
-
-                            # Progress callback for upload
-                            def upload_progress(bytes_transferred):
-                                # Only update for significant progress changes to avoid excessive logging
-                                job_status[job_id]["upload_progress"] = min(
-                                    int((bytes_transferred / os.path.getsize(file_path)) * 100),
-                                    99  # Cap at 99% until fully complete
+                            # Upload file to Azure Blob Storage using DefaultAzureCredential (Managed Identity)
+                            logger.info(f"Uploading results to Azure Blob Storage {storage_account}/{container_name}/{blob_name}")
+                            
+                            # Try using managed identity first
+                            try:
+                                credential = DefaultAzureCredential()
+                                blob_client = BlobClient(
+                                    account_url=f"https://{storage_account}.blob.core.windows.net",
+                                    container_name=container_name,
+                                    blob_name=blob_name,
+                                    credential=credential
                                 )
+                                
+                                # Upload the file
+                                with open(file_path, "rb") as data:
+                                    blob_client.upload_blob(data, overwrite=True)
+                                
+                                azure_uploaded = True
+                                logger.info(f"Successfully uploaded {result_file} to Azure Blob Storage for job {job_id}")
+                            except Exception as e:
+                                logger.error(f"Error uploading with Managed Identity: {str(e)}")
+                                
+                                # Fallback to SAS URL if available
+                                sas_url = job_status[job_id].get("sas_url")
+                                if sas_url:
+                                    try:
+                                        import requests
+                                        logger.info("Falling back to SAS URL upload method")
+                                        with open(file_path, "rb") as f:
+                                            response = requests.put(sas_url, data=f)
 
-                            # Upload the file with progress tracking
-                            with open(file_path, 'rb') as file_data:
-                                s3_client.upload_fileobj(
-                                    file_data,
-                                    s3_bucket,
-                                    s3_key,
-                                    Callback=upload_progress
-                                )
-
-                            s3_uploaded = True
-                            logger.info(f"Successfully uploaded {result_file} to S3 for job {job_id}")
+                                        if response.status_code in [200, 201]:
+                                            azure_uploaded = True
+                                            logger.info(f"Successfully uploaded {result_file} to Azure Blob Storage using SAS URL for job {job_id}")
+                                        else:
+                                            logger.error(f"Failed to upload to Azure with SAS URL: {response.status_code} {response.text}")
+                                    except Exception as e2:
+                                        logger.error(f"Error uploading to Azure with SAS URL: {str(e2)}")
                         except Exception as e:
-                            logger.error(f"Error uploading to S3 with boto3: {str(e)}")
-
-                            # Fallback to pre-signed URL if available
-                            s3_url = job_status[job_id].get("storage_url")
-                            if s3_url:
+                            logger.error(f"Error uploading to Azure Blob Storage: {str(e)}")
+                            
+                            # Fallback to SAS URL if available
+                            sas_url = job_status[job_id].get("sas_url")
+                            if sas_url:
                                 try:
                                     import requests
-                                    logger.info("Falling back to pre-signed URL upload method")
+                                    logger.info("Falling back to SAS URL upload method")
                                     with open(file_path, "rb") as f:
-                                        response = requests.put(s3_url, data=f)
+                                        response = requests.put(sas_url, data=f)
 
-                                    if response.status_code == 200:
-                                        s3_uploaded = True
-                                        logger.info(f"Successfully uploaded {result_file} to S3 using pre-signed URL for job {job_id}")
+                                    if response.status_code in [200, 201]:
+                                        azure_uploaded = True
+                                        logger.info(f"Successfully uploaded {result_file} to Azure Blob Storage using SAS URL for job {job_id}")
                                     else:
-                                        logger.error(f"Failed to upload to S3 with pre-signed URL: {response.status_code} {response.text}")
+                                        logger.error(f"Failed to upload to Azure with SAS URL: {response.status_code} {response.text}")
                                 except Exception as e2:
-                                    logger.error(f"Error uploading to S3 with pre-signed URL: {str(e2)}")
+                                    logger.error(f"Error uploading to Azure with SAS URL: {str(e2)}")
 
                     # Copy the file to a known location for easier access
                     output_file = os.path.join(job_dir, "ranked_0.pdb")
@@ -195,7 +213,7 @@ def run_alphafold(job_id, sequence, name, job_status, storage_url=None, bucket_n
                         "status": "completed",
                         "progress": 100,
                         "result_file": output_file,
-                        "s3_uploaded": s3_uploaded,
+                        "azure_uploaded": azure_uploaded,
                         "gpu_available": gpu_available,
                         "gpu_info": gpu_info,
                         "docker_gpu_access": docker_gpu,

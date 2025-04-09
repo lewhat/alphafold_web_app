@@ -10,7 +10,7 @@ dotenv.config();
 
 const storageAccountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const storageAccountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
+const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME as string;
 const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
 let blobServiceClient: BlobServiceClient;
@@ -66,7 +66,7 @@ export async function checkBlobExists(blobName: string): Promise<boolean> {
   try {
     await blobClient.getProperties();
     return true;
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404) {
       return false;
     }

@@ -11,12 +11,14 @@ import {
   getAllJobs,
 } from "../services/queueService";
 import {
-  generatePresignedUrl,
-  getBucketName,
-  checkObjectExists,
-} from "../services/s3Services";
+  generateSasUrl,
+  getContainerName,
+  getStorageAccountName,
+  checkBlobExists,
+} from "../services/blobServices";
 import { JobData, SubmitSequenceRequest } from "../../shared/types";
 import { isValidSequence } from "../../shared/utils";
+
 
 export const submitSequence = async (
   req: Request,
@@ -39,15 +41,15 @@ export const submitSequence = async (
     }
 
     const jobId = uuidv4();
-    const objectKey = `proteins/${jobId}.pdb`;
+    const storageName = `proteins/${jobId}.pdb`;
 
-    const storageUrl = await generatePresignedUrl(objectKey);
+    const storageUrl = await generateSasUrl(storageName);
 
     const jobData: JobData = {
       jobId,
       sequence,
       status: "queued",
-      objectKey,
+      storageName,
       storageUrl,
       submittedAt: new Date().toISOString(),
     };
@@ -63,11 +65,12 @@ export const submitSequence = async (
       }
 
       await axios.post(alphafoldVmEndpoint, {
-        platform: 'aws',
+        platform: "azure",
         jobId,
         sequence,
-        bucketName: getBucketName(),
-        objectKey,
+        storageAccount: getStorageAccountName(),
+        containerName: getContainerName(),
+        storageName,
         storageUrl,
       });
 
@@ -121,14 +124,14 @@ export const getJobStatus = async (
         loggedJob.status === "processing" ||
         loggedJob.status === "completed"
       ) {
-        const storageUrl = await generatePresignedUrl(loggedJob.objectKey);
-        const fileExists = await checkObjectExists(loggedJob.objectKey);
+        const storageUrl = await generateSasUrl(loggedJob.storageName);
+        const blobExists = await checkBlobExists(loggedJob.storageName);
 
         const response = {
           ...loggedJob,
           storageUrl,
-          status: fileExists ? "completed" : "processing",
-          uploaded: fileExists,
+          status: blobExists ? "completed" : "processing",
+          uploaded: blobExists,
           message: "Job has been processed",
         };
 
@@ -157,7 +160,6 @@ export const getJobStatus = async (
   }
 };
 
-
 export const checkResult = async (
   req: Request,
   res: Response,
@@ -173,7 +175,7 @@ export const checkResult = async (
     }
 
     try {
-      const exists = await checkObjectExists(loggedJob.objectKey);
+      const exists = await checkBlobExists(loggedJob.storageName);
 
       if (exists) {
         if (loggedJob.status === "processing") {
@@ -183,7 +185,7 @@ export const checkResult = async (
           });
         }
 
-        const storageUrl = await generatePresignedUrl(loggedJob.objectKey);
+        const storageUrl = await generateSasUrl(loggedJob.storageName);
 
         res.status(200).json({
           jobId,
@@ -199,7 +201,7 @@ export const checkResult = async (
         });
       }
     } catch (error) {
-      console.error("Error checking S3 object:", error);
+      console.error("Error checking blob:", error);
       throw error;
     }
   } catch (error) {
