@@ -29,3 +29,5 @@ terraform.tfstate.*
 /.mypy_cache
 *.txt
 /data
+/aws_terraform
+/azure_terraform
