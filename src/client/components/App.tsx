@@ -43,6 +43,7 @@ const App: React.FC = () => {
         console.error("Error parsing stored jobs", e);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Clean up polling on unmount
@@ -68,6 +69,7 @@ const App: React.FC = () => {
       clearInterval(pollInterval);
       setPollInterval(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, isPolling]);
 
   // Store job in localStorage

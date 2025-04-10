@@ -18,6 +18,7 @@ const Protein3DViewer: React.FC<ProteinViewerProps> = ({
   const [showSequence, setShowSequence] = useState(false);
   const [proteinChains, setProteinChains] = useState<any[]>([]);
   const [activeChain, setActiveChain] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showControls, setShowControls] = useState(true);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ const Protein3DViewer: React.FC<ProteinViewerProps> = ({
     } else {
       initViewer();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-initialize viewer when props change
@@ -50,6 +52,7 @@ const Protein3DViewer: React.FC<ProteinViewerProps> = ({
     if (window.$3Dmol && viewerInitializedRef.current) {
       initViewer();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [structureData, storageUrl]);
 
   const initViewer = async () => {
@@ -189,6 +192,7 @@ const Protein3DViewer: React.FC<ProteinViewerProps> = ({
   };
 
   // Function to highlight specific residues by their number
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const highlightResidue = (chainId: string, resNum: number) => {
     if (!viewerInstance) return;
     
