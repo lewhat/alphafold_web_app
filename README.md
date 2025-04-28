@@ -162,7 +162,7 @@ This application allows users to submit protein sequences and receive 3D structu
 
 ## Additional Information
 ### Azure code changes
-- copy and paste files on /azure to their respective directory
+- Use azure branch as it has the necessary code changes.
 
 ### Maintenance
 
